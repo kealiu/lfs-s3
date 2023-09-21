@@ -1,3 +1,11 @@
+# What's add in this fork
+
+To improve downloading speed & performance, also reduce data transfer out pricing, download from CDN is supported here.
+
+try set `S3_BUCKET_CDN` to enable it, e.g. use `CloudFront` as the CDN, `export S3_BUCKET_CDN=https://dddddddddddddd.cloudfront.net`
+
+enjoy!
+
 # Git LFS: S3 agent
 
 ## What is it?

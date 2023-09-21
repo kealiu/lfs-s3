@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -98,7 +99,13 @@ func Serve(stdin io.Reader, stdout, stderr io.Writer) {
 			api.SendResponse(resp, writer, stderr)
 		case "download":
 			fmt.Fprintf(stderr, fmt.Sprintf("Received download request for %s\n", req.Oid))
-			retrieve(req.Oid, req.Size, writer, stderr)
+			if len(os.Getenv("S3_BUCKET_CDN")) == 0 {
+				fmt.Fprintf(stderr, fmt.Sprintf("Will be download from CDN for %s\n", req.Oid))
+				retrieveCDN(req.Oid, req.Size, writer, stderr)
+			} else { 
+				fmt.Fprintf(stderr, fmt.Sprintf("Will be download from s3 for %s\n", req.Oid))
+				retrieve(req.Oid, req.Size, writer, stderr)
+			}
 		case "upload":
 			fmt.Fprintf(stderr, fmt.Sprintf("Received upload request for %s\n", req.Oid))
 			store(req.Oid, req.Size, writer, stderr)
@@ -135,6 +142,48 @@ func createS3Client() *s3.Client {
 		}
 		o.UsePathStyle = usePathStyle
 	})
+}
+
+func retrieveCDN(oid string, size int64, writer io.Writer, stderr io.Writer) {
+	localPath := ".git/lfs/objects/" + oid[:2] + "/" + oid[2:4] + "/" + oid
+	file, err := os.Create(localPath)
+        if err != nil {
+                fmt.Fprintf(stderr, fmt.Sprintf("Error creating file: %v\n", err))
+                return
+        }
+        defer func() {
+                file.Sync()
+                file.Close()
+        }()
+
+	// URL gen
+	s3cdn := os.Getenv("S3_BUCKET_CDN")
+	objectURL := s3cdn + "/" + oid
+	fmt.Fprintf(stderr, fmt.Sprintf("DEBUG  downloading s3cdn: %v\n", s3cdn))
+	fmt.Fprintf(stderr, fmt.Sprintf("DEBUG  downloading objectURL: %v\n", objectURL))
+	fmt.Fprintf(stderr, fmt.Sprintf("DEBUG  downloading localPath: %v\n", localPath))
+	
+	// Get File
+	resp, err := http.Get(objectURL)
+	if err != nil {
+		fmt.Fprintf(stderr, fmt.Sprintf("Error downloading file: %v\n", err))
+		return 
+	}
+	defer resp.Body.Close()
+
+	// Write File
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		fmt.Fprintf(stderr, fmt.Sprintf("Error writing file: %v\n", err))
+		return
+	}
+
+	// Reply protocol
+	complete := &api.TransferResponse{Event: "complete", Oid: oid, Path: localPath, Error: nil}
+        err = api.SendResponse(complete, writer, stderr)
+        if err != nil {
+                fmt.Fprintf(stderr, fmt.Sprintf("Unable to send completion message: %v\n", err))
+        }
 }
 
 func retrieve(oid string, size int64, writer io.Writer, stderr io.Writer) {

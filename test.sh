@@ -1,13 +1,13 @@
-#!/usr/bin/env sh
+#!/bin/bash -x
+
+ENVRC="$1"
 
 # This file takes as an argument the .envrc file where variables are defined.
 if [ -z "$1" ]
 then
-  echo "Please provide the path to the .envrc file"
-  exit 1
+  echo "Please provide the path to the .envrc file, or the default ./.envrc will be used "
+  ENVRC=${PWD}/.envrc
 fi
-
-ENVRC="$1"
 
 # Use a variant of the program to see input and output to the program.
 go build &&\
@@ -32,8 +32,8 @@ cd test && (
       git config --add lfs.customtransfer.lfs-s3.path ../../lfs-s3.sh
       git config --add lfs.standalonetransferagent lfs-s3
       git config --add lfs.concurrenttransfers 2
-      dd if=/dev/urandom of=blob1.bin bs=1024 count=1024
-      dd if=/dev/urandom of=blob2.bin bs=1024 count=1024
+      dd if=/dev/random of=blob1.bin bs=1024 count=1024
+      dd if=/dev/random of=blob2.bin bs=1024 count=1024
       git add blob*.bin
       git commit -m "Adding files"
       source "$ENVRC"
