@@ -99,7 +99,7 @@ func Serve(stdin io.Reader, stdout, stderr io.Writer) {
 			api.SendResponse(resp, writer, stderr)
 		case "download":
 			fmt.Fprintf(stderr, fmt.Sprintf("Received download request for %s\n", req.Oid))
-			if len(os.Getenv("S3_BUCKET_CDN")) == 0 {
+			if len(os.Getenv("S3_BUCKET_CDN")) != 0 {
 				fmt.Fprintf(stderr, fmt.Sprintf("Will be download from CDN for %s\n", req.Oid))
 				retrieveCDN(req.Oid, req.Size, writer, stderr)
 			} else { 
